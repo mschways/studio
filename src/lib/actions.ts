@@ -1,7 +1,8 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Computer, ComputerEntry } from './types';
+import type { Computer, ComputerEntry } from './types';
 import { ComputerFormData, ComputerSchema } from './schema';
 
 // Mock database
@@ -31,10 +32,18 @@ export async function addComputer(formData: ComputerFormData): Promise<{ success
     return { success: false, message: 'Validation failed.', errors: validationResult.error.flatten().fieldErrors };
   }
 
+  // Destructure to explicitly separate any potential 'id' from the form (which should be undefined for 'add')
+  // and the actual data for the new computer.
+  const { id: formId, ...computerData } = validationResult.data;
+
   const newComputer: Computer = {
-    id: crypto.randomUUID(),
-    ...validationResult.data as ComputerEntry, // id is handled above, the rest are from form
+    id: crypto.randomUUID(), // Always generate a new ID for new computers
+    name: computerData.name,
+    ip_part_1: computerData.ip_part_1,
+    ip_part_2: computerData.ip_part_2,
+    ip_part_3: computerData.ip_part_3,
   };
+  
   computers.unshift(newComputer); // Add to the beginning of the array
   revalidatePath('/');
   return { success: true, message: 'Computer added successfully.' };
