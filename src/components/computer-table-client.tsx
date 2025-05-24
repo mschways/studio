@@ -1,13 +1,14 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ComputerDialog } from "./computer-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import type { Computer } from "@/lib/types";
 import { deleteComputer } from "@/lib/actions";
-import { Edit, Trash2, Router } from "lucide-react"; // Router icon for IP address
+import { Edit, Trash2, Router, PlusCircle } from "lucide-react"; // Router icon for IP address, PlusCircle for empty state
 import { AppHeader } from './app-header';
 import { PaginationControls } from './pagination-controls';
 
@@ -21,7 +22,7 @@ interface ComputerTableClientProps {
 const ITEMS_PER_PAGE = 5; // Should match actions.ts
 
 export function ComputerTableClient({ initialComputers, totalPages, totalCount, currentPage }: ComputerTableClientProps) {
-  const [computers, setComputers] = useState<Computer[]>(initialComputers); // This state is mainly for optimistic updates if needed, or can be removed if full reloads are fine.
+  const [computers, setComputers] = useState<Computer[]>(initialComputers);
   const [isAddEditDialogOpen, setIsAddEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedComputer, setSelectedComputer] = useState<Computer | null>(null);
@@ -43,17 +44,26 @@ export function ComputerTableClient({ initialComputers, totalPages, totalCount, 
 
   const confirmDelete = async () => {
     if (!selectedComputer) return { success: false, message: "No computer selected" };
+
+    const originalComputers = [...computers]; // Store current state for potential rollback
+    
+    // Optimistically update UI
+    setComputers(prevComputers => prevComputers.filter(c => c.id !== selectedComputer.id));
+
     const result = await deleteComputer(selectedComputer.id);
-    if (result.success) {
-      // Optimistically update or rely on revalidation to refetch
-      // For now, we rely on revalidation from server action.
-      // To see immediate effect without full page reload, one might need to refetch or manage state here.
+
+    if (!result.success) {
+      // Rollback optimistic update on failure
+      setComputers(originalComputers);
+      // The DeleteConfirmDialog will show the error toast based on result.message
     }
+    // If successful, the optimistic update remains, and revalidatePath will eventually refresh data from server.
+    // The DeleteConfirmDialog will show the success toast.
     return result;
   };
   
   // Update computers if initialComputers prop changes (e.g., due to navigation or revalidation)
-  useState(() => {
+  useEffect(() => {
     setComputers(initialComputers);
   }, [initialComputers]);
 
@@ -137,3 +147,4 @@ export function ComputerTableClient({ initialComputers, totalPages, totalCount, 
     </div>
   );
 }
+
